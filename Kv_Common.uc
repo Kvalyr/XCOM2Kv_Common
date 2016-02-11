@@ -1,10 +1,23 @@
+//---------------------------------------------------------------------------------------
+//  FILE:    Kv_Common.uc
+//  AUTHOR:  Kvalyr
+//           
+//---------------------------------------------------------------------------------------
+//	This file is an attempt to provide some common, reusable code for XCOM2 mods, particularly in the area of template modification.
+//---------------------------------------------------------------------------------------
+//  Copyright (c) 2016 Robert Voigt. All Rights Reserved.
+//  Stating ARR above to prevent someone else using this in a paid-for mod.
+//	I'm otherwise open to people using my code as long as they contact me first via Steam or NexusMods, just for the above reason!
+//
+//	Credit and thanks to Amineri and the others at Long War Studios for spearheading XCOM modding and showing the rest of us how it's done.
+//---------------------------------------------------------------------------------------
 class Kv_Common extends Object;
 
 var(Kv_Common) Delegate<UpdateTemplateDelegate> UpdateFn;
 var(Kv_Common) Delegate<GetTemplatesDelegate> GetTemplatesFn;
 var(Kv_Common) Delegate<AllDifficultiesDelegate> AllDifficultiesFn;
 var string WhichItemTemplatesToGet;
-private delegate UpdateTemplateDelegate(X2DataTemplate Template);				// The delegate function that makes actual changes to a single template
+private delegate bool UpdateTemplateDelegate(X2DataTemplate Template);				// The delegate function that makes actual changes to a single template
 private delegate array<X2DataTemplate> GetTemplatesDelegate();					// The delegate function that retrieves an array of templates to work on
 private delegate bool AllDifficultiesDelegate();								// The delegate function that gets called for every difficulty
 
@@ -37,18 +50,25 @@ static function array<X2ItemTemplate> GetItemTemplatesByType(string TemplateType
 }
 
 // Public
-static function bool UpdateTemplates(delegate<UpdateTemplateDelegate> TemplateUpdateFunc, delegate<GetTemplatesDelegate> GetTemplatesFunc)
+static function bool UpdateTemplates(delegate<UpdateTemplateDelegate> TemplateUpdateFunc, delegate<GetTemplatesDelegate> GetTemplatesFunc, optional bool NoDifficulties)
 {
 	local Kv_Common KvC;
 	KvC = new class'Kv_Common';
 	KvC.UpdateTemplateDelegate = TemplateUpdateFunc;
 	KvC.GetTemplatesDelegate = GetTemplatesFunc;
-	KvC.AllDifficultiesDelegate = _UpdateTemplates;
-	return KvC._CallFunctionForAllDifficulties();
+	if(!NoDifficulties)
+	{
+		KvC.AllDifficultiesDelegate =  KvC._UpdateTemplatesWithDelegate;
+		return KvC._CallDelegateFunctionForAllDifficulties();
+	}
+	else
+	{
+		return KvC._UpdateTemplatesWithDelegate();
+	}
 }
 
 // Public
-static function bool UpdateAllItemTemplatesOfType(string TemplateType, delegate<UpdateTemplateDelegate> TemplateUpdateFunc)
+static function bool UpdateAllItemTemplatesOfType(string TemplateType, delegate<UpdateTemplateDelegate> TemplateUpdateFunc, optional bool NoDifficulties)
 {
 	local Kv_Common KvC;
 	KvC = new class'Kv_Common';
@@ -57,23 +77,27 @@ static function bool UpdateAllItemTemplatesOfType(string TemplateType, delegate<
 
 	KvC.WhichItemTemplatesToGet = TemplateType;
 	KvC.GetTemplatesDelegate = KvC._GetItemTemplatesByType;
-
-	KvC.AllDifficultiesDelegate = KvC._UpdateTemplates;
-	
-	return KvC._CallFunctionForAllDifficulties();
+		
+	if(!NoDifficulties)
+	{
+		KvC.AllDifficultiesDelegate =  KvC._UpdateTemplatesWithDelegate;
+		return KvC._CallDelegateFunctionForAllDifficulties();
+	}
+	else
+	{
+		return KvC._UpdateTemplatesWithDelegate();
+	}
 }
 
 // ================================================================================================================================
 // Private stuff below here
 // ================================================================================================================================
 
+// Returns an X2DataTemplates array of item templates. Class.WhichItemTemplatesToGet must be set beforehand.
 private function array<X2DataTemplate> _GetItemTemplatesByType()
 {
 	local X2ItemTemplateManager ItemTemplateManager;
 	local array<X2DataTemplate> Templates;
-	local array<X2ItemTemplate> ItemTemplates;
-
-	//`log("^*^*^*^*^*^*^^__+_+_+_+_+_+_+_+_+_+__^*^*^*^*^*^*^*^*^*^_+_+_+_+_+_ _GetItemTemplatesByType()" @ " ' " @ UpdateTemplateDelegate @ " ' " @ WhichItemTemplatesToGet @ " ' " @ GetTemplatesDelegate @ "'" );
 
 	ItemTemplateManager = class'X2ItemTemplateManager'.static.GetItemTemplateManager();
 	switch(WhichItemTemplatesToGet)
@@ -96,20 +120,18 @@ private function array<X2DataTemplate> _GetItemTemplatesByType()
 			break;
 
 		default:
-			//`log("^&%^%&^&%^&^%&^%&^$&^$^&%^&$^&%&$&^%*&^$*&^^%^% _GetItemTemplatesByType() No match:" @ WhichItemTemplatesToGet);
 			break;
 	}
-	//`log("^&%^%&^&%^&^%&^%&^$&^$^&%^&$^&%&$&^%*&^$*&^^%^% _GetItemTemplatesByType() length:" @ Templates.Length);
 	return Templates;
 }
 
-private function bool _CallFunctionForAllDifficulties()
+// Calls a function once for each difficulty setting in the game. Useful for updating templates with difficulty variants.
+private function bool _CallDelegateFunctionForAllDifficulties()
 {
 	local int DifficultyIndex, OriginalDifficulty, OriginalLowestDifficulty;
 	local XComGameState_CampaignSettings Settings;
     local XComGameStateHistory History;
-
-	//`log("^*^*^*^*^*^*^^__+_+_+_+_+_+_+_+_+_+__^*^*^*^*^*^*^*^*^*^_+_+_+_+_+_ _CallFunctionForAllDifficulties()" @ " ' " @ UpdateTemplateDelegate @ " ' " @ WhichItemTemplatesToGet @ " ' " @ GetTemplatesDelegate @ "'" @ AllDifficultiesDelegate  @ "'" );
+	local bool success;
 	
 	History = `XCOMHISTORY;
     Settings = XComGameState_CampaignSettings(History.GetSingleGameStateObjectForClass(class'XComGameState_CampaignSettings', true));
@@ -120,58 +142,50 @@ private function bool _CallFunctionForAllDifficulties()
 
 		for( DifficultyIndex = `MIN_DIFFICULTY_INDEX; DifficultyIndex <= `MAX_DIFFICULTY_INDEX; ++DifficultyIndex )
 		{
+			//Z// We only really care about the last call to AllDifficultiesDelegate() since we want ALL calls to return true to count as success
+			success = false; 
+			
 			//Z// Set difficulty temporarily
 			Settings.SetDifficulty(DifficultyIndex, true);
 
-			//`log("^&%^%&^&%^&^%&^%&^$&^$^&%^&$^&%&$&^%*&^$*&^^%^% _CallFunctionForAllDifficulties Iteration::" @ DifficultyIndex);
-			//`log("^*^*^*^*^*^*^*^*^*^_+_+_+_+_+ _CallFunctionForAllDifficulties()" @ " ' " @ UpdateTemplateDelegate @ " ' " @ WhichItemTemplatesToGet @ " ' " @ GetTemplatesDelegate @ "'" );
-			AllDifficultiesDelegate();
+			success = AllDifficultiesDelegate();
 		}
 		//Z//Restore difficulty values
 		Settings.SetDifficulty(OriginalLowestDifficulty, true);
 		Settings.SetDifficulty(OriginalDifficulty, false);
-		return true;
+		return success;
 	}
 	return false;
-
-	//return AllDifficultiesDelegate();
-
-	
 }
 
-
-private function bool _UpdateTemplates()
+// Updates all templates in an array using the UpdateTemplateDelegate function.
+// UpdateTemplateDelegate and GetTemplatesDelegate must be set beforehand.
+private function bool _UpdateTemplatesWithDelegate()
 {
 	local array<X2DataTemplate> Templates;
 	local X2DataTemplate Template;
 	local int TemplateIndex;
 
-	//`log("^*^*^*^*^*^*^*^*^*^_+_+_+_+_+_ _UpdateTemplates()" @ " ' " @ UpdateTemplateDelegate @ " ' " @ WhichItemTemplatesToGet @ " ' " @ GetTemplatesDelegate @ "'" );
-
 	// Call GetTemplatesDelegate to get an array of templates to update
-	
 	if (GetTemplatesDelegate != none)
-	{
-		//`log("!£!£!£!£!£!£!£!£!£!£!£!£!£!£!£!£!£!£!£!£!£!£!££! _UpdateTemplates -- GetTemplatesDelegate is NOT none!");
-		//`log("^&%^%&^&%^&^%&^%&^$&^$^&%^&$^&%&$&^%*&^$*&^^%^% _UpdateTemplates -- WhichItemTemplatesToGet:" @ WhichItemTemplatesToGet);
 		Templates = GetTemplatesDelegate();
+	else
+		`log("_+_+_+_+_+_+_+_+_+_+_+_+ GetTemplatesDelegate IS NONE.");
+
+	if (Templates.Length > 0)
+	{
+		// For each template, pass it to UpdateTemplateDelegate to make whatever changes are necessary
+		for(TemplateIndex = 0; TemplateIndex < Templates.Length; ++TemplateIndex)
+		{
+			Template = Templates[TemplateIndex];
+			if(Template != none)
+				UpdateTemplateDelegate(Template);
+		}
+		return true;
 	}
 	else
 	{
-		//`log("^&%^%&^&%^&^%&^%&^$&^$^&%^&$^&%&$&^%*&^$*&^^%^% _UpdateTemplates -- GetTemplatesDelegate is none!");
-		//`log("^&%^%&^&%^&^%&^%&^$&^$^&%^&$^&%&$&^%*&^$*&^^%^% _UpdateTemplates -- WhichItemTemplatesToGet:" @ WhichItemTemplatesToGet);
+		`log("_+_+_+_+_+_+_+_+_+_+_+_+ Kv_Common _UpdateTemplatesWithDelegate() received empty templates array.");
 	}
-
-	//`log("^&%^%&^&%^&^%&^%&^$&^$^&%^&$^&%&$&^%*&^$*&^^%^% _UpdateTemplates. Length: " @ Templates.Length);
-
-	// For each template, pass it to UpdateTemplateDelegate to make whatever changes are necessary
-	for(TemplateIndex = 0; TemplateIndex < Templates.Length; ++TemplateIndex)
-	{
-		Template = Templates[TemplateIndex];
-		if(Template != none)
-			//`log("^&%^%&^&%^&^%&^%&^$&^$^&%^&$^&%&$&^%*&^$*&^^%^% Calling UpdateTemplateDelegate()...");
-			UpdateTemplateDelegate(Template);
-	}
-
-	return true;
+	return false;
 }

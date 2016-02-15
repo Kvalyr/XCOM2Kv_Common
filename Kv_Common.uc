@@ -17,12 +17,35 @@ var(Kv_Common) Delegate<UpdateTemplateDelegate> UpdateFn;
 var(Kv_Common) Delegate<GetTemplatesDelegate> GetTemplatesFn;
 var(Kv_Common) Delegate<AllDifficultiesDelegate> AllDifficultiesFn;
 var string WhichItemTemplatesToGet;
+
 private delegate bool UpdateTemplateDelegate(X2DataTemplate Template);				// The delegate function that makes actual changes to a single template
 private delegate array<X2DataTemplate> GetTemplatesDelegate();					// The delegate function that retrieves an array of templates to work on
 private delegate bool AllDifficultiesDelegate();								// The delegate function that gets called for every difficulty
 
 // ================================================================================================================================
-// Public methods
+// Public methods - Managers and Screen Listeners
+// ================================================================================================================================
+
+static function Log(string LogString)
+{
+	`log("= = = = = = = = = = = = = = = = KvC: " @ LogString);
+}
+
+// Get the instance of our KvC manager
+static function Kv_C_Manager GetManager(optional UIScreenListener ScreenListener)
+{
+	return class'Kv_C_Manager'.static.GetOrCreateManager(ScreenListener);
+}
+
+// Create a reference to a UIScreenListener that we can access via our manager
+static function int StoreListener(UIScreenListener ScreenListener)
+{	
+	GetManager(ScreenListener);	// Now this manager can be fetched from the screenstack and contains a reference to this UIScreenListener for reuse
+}
+
+
+// ================================================================================================================================
+// Public methods - Templates
 // ================================================================================================================================
 
 static function array<X2ItemTemplate> GetItemTemplatesByType(string TemplateType)
@@ -148,6 +171,7 @@ private function bool _CallDelegateFunctionForAllDifficulties()
 			//Z// Set difficulty temporarily
 			Settings.SetDifficulty(DifficultyIndex, true);
 
+			`log("_+_+_+_+_+_+_+_+_+_+_+_+ _CallDelegateFunctionForAllDifficulties() calling AllDifficultiesDelegate(). Iteration:" @ DifficultyIndex);
 			success = AllDifficultiesDelegate();
 		}
 		//Z//Restore difficulty values

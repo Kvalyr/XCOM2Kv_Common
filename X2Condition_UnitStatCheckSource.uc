@@ -3,7 +3,7 @@
 //  AUTHOR:  Timothy Talley
 //           
 //---------------------------------------------------------------------------------------
-//  Copyright (c) 2016 Firaxis Games, Inc. All rights reserved.
+//  Copyright (c) 2016-2018 Kvalyr. All Rights Reserved.
 //---------------------------------------------------------------------------------------
 class X2Condition_UnitStatCheckSource extends X2Condition_UnitStatCheck;
 
@@ -40,6 +40,7 @@ event name CallMeetsConditionWithSource(XComGameState_BaseObject kTarget, XComGa
 	UnitState = XComGameState_Unit(kSource);
 	if (UnitState != none)
 	{
+		
 		for (i = 0; (i < m_aCheckStats.Length) && (RetCode == 'AA_Success'); ++i)
 		{
 			if (m_aCheckStats[i].bCheckAsPercent)
@@ -54,6 +55,7 @@ event name CallMeetsConditionWithSource(XComGameState_BaseObject kTarget, XComGa
 
 			RetCode = PerformValueCheck(StatValue, m_aCheckStats[i].ConfigValue);
 		}
+		`log(")()()()(_)(_+_)(_)(_)(+_)(+_)(+_)(_+*) CallMeetsConditionWithSource() Unit: " @ UnitState.GetName(eNameType_FullNick) @ " - RetCode: " @ RetCode);
 	}
 	return RetCode;
 }

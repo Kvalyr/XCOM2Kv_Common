@@ -1,4 +1,4 @@
 `define KvC class'Kv_Common'.static
+`define KvCLog(string) class'Kv_Common'.static.Log(`string)
 `define KvCM(Listener) class'Kv_Common'.static.GetManager(`Listener)
-
- 
+`define KvCGetListener(Screen) `KvCM.GetFirstListenerForScreen(`Screen)

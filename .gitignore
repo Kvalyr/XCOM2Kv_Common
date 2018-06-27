@@ -1,0 +1,6 @@
+XcomGame/
+*_Symlink/
+*.zip
+*.pspimage
+Release/
+Kv_Common.uc

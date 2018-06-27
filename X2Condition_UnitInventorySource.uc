@@ -31,5 +31,7 @@ event name CallMeetsConditionWithSource(XComGameState_BaseObject kTarget, XComGa
 			return 'AA_WeaponIncompatible';
 	}
 
+	`log(")()()()(_)(_+_)(_)(_)(+_)(+_)(+_)(_+*) CallMeetsConditionWithSource() Unit: " @ UnitState.GetName(eNameType_FullNick) @ " - RetCode: " @ 'AA_Success');
+
 	return 'AA_Success';
 }

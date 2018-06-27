@@ -3,8 +3,8 @@
 //  AUTHOR:  Kvalyr
 //  PURPOSE: This screenlistener pushes an instance of our common code manager as UIScreen to the screenstack for global access
 //---------------------------------------------------------------------------------------
-//  Copyright (c) 2016 Robert Voigt
-//--------------------------------------------------------------------------------------- 
+//  Copyright (c) 2016-2018 Kvalyr. All Rights Reserved.
+//---------------------------------------------------------------------------------------
 class Kv_C_ScreenListener extends UIScreenListener;
 
 /*
